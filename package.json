@@ -1,0 +1,7 @@
+{
+  "name": "toms-office-dashboard",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "echo 'Văn phòng số đã sẵn sàng'"
+  }
+}
