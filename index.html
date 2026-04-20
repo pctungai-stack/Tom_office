@@ -3,22 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tôm's Office Dashboard</title>
+    <title>OpenClaw Bot Review | Tôm's Office</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0f172a; color: #f1f5f9; font-family: sans-serif; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); }
+        :root {
+            --bg-dark: #0a0f1c;
+            --card-bg: rgba(17, 25, 40, 0.75);
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.3);
+        }
+        body { 
+            background-color: var(--bg-dark); 
+            color: #e2e8f0; 
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-image: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent),
+                              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent);
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { 
+            background: var(--card-bg); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .status-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .pulse-green { 
+            background-color: var(--accent); 
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .log-entry {
+            border-left: 2px solid rgba(16, 185, 129, 0.3);
+            transition: all 0.2s;
+        }
+        .log-entry:hover {
+            background: rgba(16, 185, 129, 0.05);
+            border-left-color: var(--accent);
+        }
     </style>
 </head>
-<body class="p-4">
-    <div class="max-w-4xl mx-auto">
-        <header class="mb-8">
-            <h1 class="text-2xl font-bold text-emerald-400">🦐 Tôm's Office Dashboard</h1>
-            <p class="text-slate-400">Văn phòng số của đại ca đã lên mây!</p>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Top Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="text-3xl">🦐</span>
+                    <h1 class="text-4xl font-extrabold tracking-tight text-white">
+                        OpenClaw <span class="text-emerald-500">Bot Review</span>
+                    </h1>
+                </div>
+                <p class="text-slate-400 font-medium">System Monitoring & Agent Orchestration Dashboard</p>
+            </div>
+            <div class="glass px-4 py-2 rounded-full flex items-center gap-4">
+                <div class="flex items-center">
+                    <span class="status-pulse pulse-green"></span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">System Online</span>
+                </div>
+                <div class="h-4 w-px bg-slate-700"></div>
+                <span id="last-update" class="text-xs mono text-slate-500">Syncing...</span>
+            </div>
         </header>
-        <div class="glass p-6 rounded-xl">
-            <p>Văn phòng đã sẵn sàng kết nối. Tôm đang đợi kết nối dữ liệu từ máy tính của đại ca lên đây...</p>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm font-semibold mb-1">Total Tasks</p>
+                <h3 id="stat-total-tasks" class="text-3xl font-bold text-white">0</h3>
+            </div>
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm font-semibold mb-1">Success Rate</p>
+                <h3 id="stat-success-rate" class="text-3xl font-bold text-emerald-500">0%</h3>
+            </div>
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm font-semibold mb-1">Active Agents</p>
+                <h3 id="stat-active-agents" class="text-3xl font-bold text-white">0/0</h3>
+            </div>
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-slate-400 text-sm font-semibold mb-1">System Latency</p>
+                <h3 id="stat-latency" class="text-3xl font-bold text-blue-400">-- ms</h3>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Agents Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="text-emerald-500">●</span> Active Agents
+                </h2>
+                <div id="agent-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Agent cards will be injected here -->
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="space-y-6">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="text-emerald-500">●</span> Live Activity
+                </h2>
+                <div class="glass rounded-3xl p-6 h-[600px] flex flex-col">
+                    <div id="logs" class="flex-1 overflow-y-auto space-y-4 pr-2 mono text-xs">
+                        <div class="text-slate-500 italic text-center mt-10">Waiting for data stream...</div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800">
+                        <div class="flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                            <span>Status: Listening</span>
+                            <span id="sync-indicator" class="text-emerald-500">● Syncing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script>
+        // Note: API_URL will be replaced by the Cloud DB URL (Supabase/Firebase)
+        const API_URL = 'https://gist.githubusercontent.com/pctungai-stack/44b44a7a42ff1b7baaa551a5b0ef91db/raw/office_state.json'; // Temporary local fallback
+
+        async function updateDashboard() {
+            try {
+                const start = Date.now();
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                const latency = Date.now() - start;
+
+                document.getElementById('last-update').innerText = "Sync: " + data.last_heartbeat;
+                document.getElementById('stat-latency').innerText = latency + " ms";
+                
+                // Calculate Stats
+                const totalTasks = data.agents.reduce((acc, agent) => acc + (agent.progress === 100 ? 1 : 0), 0);
+                const activeAgents = data.agents.filter(a => a.status === 'Working').length;
+                
+                document.getElementById('stat-total-tasks').innerText = totalTasks;
+                document.getElementById('stat-active-agents').innerText = activeAgents + '/' + data.agents.length;
+                document.getElementById('stat-success-rate').innerText = totalTasks > 0 ? '100%' : '0%';
+
+                // Render Agents
+                const grid = document.getElementById('agent-grid');
+                grid.innerHTML = '';
+                data.agents.forEach(agent => {
+                    const statusColor = agent.status === 'Working' ? 'text-amber-400' : 
+                                       (agent.status === 'Completed' ? 'text-emerald-400' : 'text-slate-500');
+                    grid.innerHTML += `
+                        <div class="glass p-6 rounded-3xl relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                            <div class="absolute top-0 right-0 p-4">
+                                <span class="text-[10px] font-bold uppercase tracking-tighter ${statusColor}">${agent.status}</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-1">${agent.id}</h3>
+                            <p class="text-slate-400 text-xs mb-6 line-clamp-2 h-8">${agent.task}</p>
+                            
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Progress</span>
+                                <span class="text-xs font-bold text-emerald-400">${agent.progress}%</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-emerald-500 h-full transition-all duration-1000" style="width: ${agent.progress}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Render Logs
+                const logContainer = document.getElementById('logs');
+                if (data.logs && data.logs.length > 0) {
+                    logContainer.innerHTML = data.logs.slice().reverse().map(log => `
+                        <div class="log-entry p-2 rounded-r-lg">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-emerald-500 font-bold">[SYSTEM]</span>
+                                <span class="text-slate-600">${log.time || ''}</span>
+                            </div>
+                            <div class="text-slate-300">${log.message}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Sync Error:", e);
+                document.getElementById('sync-indicator').innerText = "Offline";
+                document.getElementById('sync-indicator').className = "text-red-500";
+            }
+        }
+
+        setInterval(updateDashboard, 3000);
+        updateDashboard();
+    </script>
 </body>
 </html>
